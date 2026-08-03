@@ -1,0 +1,1589 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<title>🪙 Head or Tail – Board Game</title>
+<style>
+/* Fonts are self-hosted (no Google Fonts CDN dependency) — see /fonts/.
+   'Fredoka One' and 'Nunito' fall back to the OS's rounded/humanist sans
+   fonts if the local files are missing, so the layout never breaks. */
+@font-face {
+  font-family: 'Fredoka One';
+  src: url('fonts/FredokaOne-Regular.woff2') format('woff2'),
+       url('fonts/FredokaOne-Regular.woff') format('woff');
+  font-weight: 400; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: 'Nunito';
+  src: url('fonts/Nunito-Regular.woff2') format('woff2'),
+       url('fonts/Nunito-Regular.woff') format('woff');
+  font-weight: 400; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: 'Nunito';
+  src: url('fonts/Nunito-SemiBold.woff2') format('woff2'),
+       url('fonts/Nunito-SemiBold.woff') format('woff');
+  font-weight: 600; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: 'Nunito';
+  src: url('fonts/Nunito-Bold.woff2') format('woff2'),
+       url('fonts/Nunito-Bold.woff') format('woff');
+  font-weight: 700; font-style: normal; font-display: swap;
+}
+@font-face {
+  font-family: 'Nunito';
+  src: url('fonts/Nunito-ExtraBold.woff2') format('woff2'),
+       url('fonts/Nunito-ExtraBold.woff') format('woff');
+  font-weight: 800; font-style: normal; font-display: swap;
+}
+
+*, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+/* iOS Safari: stop the OS auto-bumping text size on rotation, and remove
+   the grey tap-highlight flash on buttons/links. */
+html { -webkit-text-size-adjust: 100%; text-size-adjust: 100%; }
+* { -webkit-tap-highlight-color: transparent; }
+/* Tell the browser these elements are single-tap targets: stops the
+   double-tap-to-zoom gesture and the ~300ms click delay on touch browsers
+   that still apply it, without touching how anything looks. */
+button, input, .cell, .btn-copy, .btn-cancel { touch-action: manipulation; }
+
+:root {
+  --gold:   #F5C842;
+  --dark:   #0d1b2a;
+  --panel:  #132033;
+  --border: #1e3354;
+  --red:    #e74c3c;
+  --blue:   #2980b9;
+  --purple: #8e44ad;
+  --orange: #e67e22;
+  --teal:   #16a085;
+  --grey:   #636e72;
+}
+
+html, body {
+  width: 100%;
+  /* Fallback chain: plain vh for old browsers -> JS-measured --vh custom
+     property (set on load/resize/orientationchange, fixes the iOS Safari
+     address-bar-resize bug) -> 100dvh where it's actually supported. */
+  height: 100vh;
+  height: calc(var(--vh, 1vh) * 100);
+  height: 100dvh;
+  overflow: hidden;
+  overscroll-behavior: none;
+  font-family: 'Nunito', -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif;
+  background: var(--dark); color: #e0e8f0;
+  -webkit-user-select: none; user-select: none;
+  -webkit-touch-callout: none;
+}
+input, textarea {
+  -webkit-user-select: text; user-select: text;
+  -webkit-touch-callout: default;
+}
+
+/* ══════════════════════════════════
+   LOBBY
+══════════════════════════════════ */
+#lobbyScreen {
+  position: fixed; inset: 0; z-index: 500;
+  background: linear-gradient(160deg, #0a1929 0%, #0d1b2a 100%);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: calc(24px + env(safe-area-inset-top)) calc(24px + env(safe-area-inset-right)) calc(24px + env(safe-area-inset-bottom)) calc(24px + env(safe-area-inset-left));
+}
+#lobbyScreen.hidden { display: none; }
+
+.lobby-logo {
+  font-family: 'Fredoka One', cursive;
+  font-size: clamp(1.5rem, 7vw, 2.2rem);
+  color: var(--gold);
+  text-shadow: 0 0 30px rgba(245,200,66,.5);
+  margin-bottom: 4px;
+}
+.lobby-sub {
+  font-size: clamp(.65rem, 2.8vw, .8rem);
+  color: #4a6a8a; margin-bottom: 28px; letter-spacing: 1px;
+}
+.lobby-card {
+  background: var(--panel); border: 2px solid var(--border);
+  border-radius: 20px; padding: 22px 24px;
+  width: 100%; max-width: 360px;
+  display: flex; flex-direction: column; gap: 12px;
+}
+.lobby-section-title {
+  font-family: 'Fredoka One', cursive;
+  font-size: .75rem; letter-spacing: 2px; text-transform: uppercase;
+  color: #4a6a8a; text-align: center;
+}
+.lobby-name-row { display: flex; gap: 8px; align-items: center; }
+.lobby-name-label { font-size: .72rem; font-weight: 700; color: #7a9ab8; white-space: nowrap; }
+.lobby-name-input {
+  flex: 1; font-family: 'Fredoka One', cursive; font-size: max(.92rem, 16px);
+  background: rgba(255,255,255,.06); border: 1.5px solid var(--border);
+  border-radius: 10px; color: #eef; padding: 8px 12px; outline: none;
+  transition: border-color .2s;
+}
+.lobby-name-input:focus { border-color: var(--gold); }
+.lobby-divider {
+  display: flex; align-items: center; gap: 10px;
+  color: #2a4a6a; font-size: .72rem; font-weight: 700; letter-spacing: 1px;
+}
+.lobby-divider::before, .lobby-divider::after {
+  content: ''; flex: 1; height: 1px; background: var(--border);
+}
+.btn-create {
+  font-family: 'Fredoka One', cursive; font-size: .95rem;
+  background: linear-gradient(135deg, var(--gold), #c8960a); color: #0d1b2a;
+  border: none; border-radius: 50px; padding: 12px 0; width: 100%;
+  cursor: pointer; letter-spacing: .3px;
+  box-shadow: 0 4px 18px rgba(245,200,66,.35); transition: filter .15s;
+}
+.btn-create:active { filter: brightness(.9); }
+.join-row { display: flex; gap: 8px; }
+.join-input {
+  flex: 1; font-family: 'Fredoka One', cursive;
+  font-size: 1.1rem; letter-spacing: 4px; text-transform: uppercase; text-align: center;
+  background: rgba(255,255,255,.06); border: 1.5px solid var(--border);
+  border-radius: 10px; color: #eef; padding: 10px; outline: none;
+  transition: border-color .2s;
+}
+.join-input:focus { border-color: var(--blue); }
+.btn-join {
+  font-family: 'Fredoka One', cursive; font-size: .88rem;
+  background: var(--blue); color: #fff; border: none;
+  border-radius: 10px; padding: 10px 16px; cursor: pointer; transition: filter .15s;
+}
+.btn-join:active { filter: brightness(.85); }
+.lobby-error {
+  font-size: .78rem; color: #e74c3c; text-align: center;
+  min-height: 18px; font-weight: 700; line-height: 1.4;
+}
+
+/* ══════════════════════════════════
+   WAITING
+══════════════════════════════════ */
+#waitScreen {
+  position: fixed; inset: 0; z-index: 400;
+  background: linear-gradient(160deg, #0a1929 0%, #0d1b2a 100%);
+  display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  padding: calc(32px + env(safe-area-inset-top)) calc(32px + env(safe-area-inset-right)) calc(32px + env(safe-area-inset-bottom)) calc(32px + env(safe-area-inset-left));
+  gap: 18px; text-align: center;
+}
+#waitScreen.hidden { display: none; }
+.wait-title { font-family: 'Fredoka One', cursive; font-size: clamp(1rem, 5vw, 1.4rem); color: var(--gold); }
+.wait-code-box {
+  background: var(--panel); border: 2.5px dashed var(--gold);
+  border-radius: 16px; padding: 16px 28px;
+}
+.wait-code-label { font-size: .7rem; color: #4a6a8a; letter-spacing: 2px; text-transform: uppercase; margin-bottom: 4px; }
+.wait-code {
+  font-family: 'Fredoka One', cursive;
+  font-size: clamp(2.2rem, 11vw, 3.2rem);
+  color: var(--gold); letter-spacing: 8px;
+  text-shadow: 0 0 20px rgba(245,200,66,.4);
+}
+.wait-desc { font-size: clamp(.75rem, 3.2vw, .9rem); color: #5a7a9a; line-height: 1.5; }
+.btn-copy {
+  font-family: 'Fredoka One', cursive; font-size: .88rem;
+  background: rgba(245,200,66,.12); color: var(--gold);
+  border: 1.5px solid rgba(245,200,66,.4); border-radius: 50px;
+  padding: 9px 22px; cursor: pointer;
+}
+.wait-pulse { display: flex; gap: 6px; align-items: center; color: #4a6a8a; font-size: .8rem; }
+.dot { width: 7px; height: 7px; border-radius: 50%; background: #4a6a8a; animation: pulse 1.2s infinite; }
+.dot:nth-child(2){animation-delay:.2s} .dot:nth-child(3){animation-delay:.4s}
+@keyframes pulse{0%,100%{opacity:.3;transform:scale(.8)}50%{opacity:1;transform:scale(1.1)}}
+.btn-cancel {
+  font-family: 'Fredoka One', cursive; font-size: .8rem;
+  background: none; color: #4a6a8a; border: 1px solid #2a3a4a;
+  border-radius: 50px; padding: 7px 18px; cursor: pointer;
+}
+
+/* ══════════════════════════════════
+   ONLINE STATUS BAR
+══════════════════════════════════ */
+#onlineBar {
+  display: none; background: rgba(0,0,0,.35);
+  border-bottom: 1px solid var(--border);
+  padding: 2px 12px; font-size: .62rem; color: #4a6a8a;
+  text-align: center; gap: 8px; align-items: center; justify-content: center;
+}
+#onlineBar.show { display: flex; }
+.online-dot { width: 6px; height: 6px; border-radius: 50%; background: #27ae60; flex-shrink: 0; }
+#roomCodeDisplay { font-family: 'Fredoka One', cursive; color: var(--gold); letter-spacing: 2px; }
+
+/* ══════════════════════════════════
+   APP SHELL
+══════════════════════════════════ */
+#app {
+  display: flex; flex-direction: column;
+  width: 100%;
+  height: 100vh;
+  height: calc(var(--vh, 1vh) * 100);
+  height: 100dvh;
+  overflow: hidden;
+  /* Respect the iPhone/iPad notch & home-indicator area without changing
+     the visible layout on devices that don't have one (env() resolves to
+     0px there). */
+  padding-top: env(safe-area-inset-top);
+  padding-left: env(safe-area-inset-left);
+  padding-right: env(safe-area-inset-right);
+}
+
+/* ─── HEADER ─── */
+#hdr {
+  flex: 0 0 auto;
+  display: flex; align-items: center; justify-content: center;
+  padding: 2px 8px;
+  background: linear-gradient(90deg, #0d1b2a 0%, #132033 50%, #0d1b2a 100%);
+  border-bottom: 2px solid var(--gold); position: relative;
+}
+#hdr h1 {
+  font-family: 'Fredoka One', cursive;
+  font-size: clamp(.95rem, 4.5vw, 1.3rem);
+  color: var(--gold); white-space: nowrap;
+  text-shadow: 0 0 18px rgba(245,200,66,.5); letter-spacing: 1px;
+}
+#leaveBtn {
+  position: absolute; right: 10px;
+  font-family: 'Fredoka One', cursive;
+  font-size: clamp(.6rem, 2.8vw, .75rem);
+  background: rgba(231,76,60,.18); color: #e74c3c;
+  border: 1.5px solid rgba(231,76,60,.4); border-radius: 50px;
+  padding: 4px 10px; cursor: pointer; white-space: nowrap;
+}
+
+/* ─── PLAYERS STRIP ─── */
+#playersStrip {
+  flex: 0 0 auto; display: flex; gap: 6px;
+  padding: 4px 8px; background: var(--dark);
+}
+.prow {
+  flex: 1; display: flex; align-items: center; gap: 6px;
+  border-radius: 10px; padding: 4px 8px;
+  border: 1.5px solid transparent; transition: box-shadow .3s;
+}
+.prow.active { box-shadow: 0 0 0 2px var(--gold); border-color: var(--gold); }
+.p1row { background: rgba(231,76,60,.12); border-color: rgba(231,76,60,.3); }
+.p2row { background: rgba(41,128,185,.12); border-color: rgba(41,128,185,.3); }
+.pavatar {
+  width: 24px; height: 24px; border-radius: 50%;
+  font-family: 'Fredoka One', cursive; font-size: .75rem; color: #fff;
+  display: flex; align-items: center; justify-content: center; flex-shrink: 0;
+}
+.p1av { background: #e74c3c; } .p2av { background: #2980b9; }
+.pinfo { flex: 1; min-width: 0; }
+.pname-display { font-weight: 800; font-size: clamp(.58rem, 2.8vw, .72rem); color: #dde; white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+.ppos { font-size: clamp(.52rem, 2.3vw, .62rem); color: #7a9ab8; }
+.skip-badge { background: var(--grey); color: #fff; font-size: .5rem; padding: 2px 5px; border-radius: 20px; font-weight: 700; white-space: nowrap; }
+.you-badge { font-size: .48rem; background: rgba(245,200,66,.18); color: var(--gold); border: 1px solid rgba(245,200,66,.4); border-radius: 12px; padding: 1px 5px; font-weight: 700; letter-spacing: .5px; }
+
+/* ─── BOARD AREA ─── */
+#boardArea {
+  flex: 1 1 0; display: flex; align-items: center; justify-content: center;
+  background: linear-gradient(160deg, #0a1929 0%, #132033 100%);
+  border-top: 1px solid var(--border); border-bottom: 1px solid var(--border);
+  min-height: 0; padding: 4px;
+}
+#boardGrid { display: grid; gap: 3px; position: relative; }
+
+.floating-token {
+  position: absolute;
+  border-radius: 50%; border: 2px solid white;
+  display: none; align-items: center; justify-content: center;
+  font-weight: 800; font-family: 'Fredoka One', cursive; color: #fff;
+  z-index: 50; pointer-events: none;
+  box-shadow: 0 6px 14px rgba(0,0,0,.5), 0 2px 4px rgba(0,0,0,.3);
+  transition: left .19s cubic-bezier(.45,0,.55,1), top .19s cubic-bezier(.45,0,.55,1);
+}
+.floating-token.token-1 { background: #e74c3c; }
+.floating-token.token-2 { background: #2980b9; }
+.floating-token.hop { animation: tokenHop .19s ease-out; }
+@keyframes tokenHop {
+  0%   { transform: translate(-50%,-50%) scale(1)     translateY(0); }
+  40%  { transform: translate(-50%,-50%) scale(1.18)  translateY(-16px) rotate(-10deg); }
+  75%  { transform: translate(-50%,-50%) scale(.94)   translateY(2px)  rotate(5deg); }
+  100% { transform: translate(-50%,-50%) scale(1)     translateY(0)    rotate(0); }
+}
+.floating-token:not(.hop) { transform: translate(-50%,-50%); }
+.token.shake { animation: tokenShakeStatic .45s ease; }
+@keyframes tokenShakeStatic {
+  0%,100% { transform: translateX(0) rotate(0); }
+  20% { transform: translateX(-4px) rotate(-10deg); }
+  40% { transform: translateX(4px) rotate(8deg); }
+  60% { transform: translateX(-3px) rotate(-5deg); }
+  80% { transform: translateX(2px) rotate(3deg); }
+}
+
+.cell {
+  border-radius: 5px; display: flex; flex-direction: column;
+  align-items: center; justify-content: center;
+  cursor: pointer; position: relative;
+  border: 1px solid rgba(255,255,255,.1);
+  text-align: center; user-select: none; overflow: hidden;
+}
+.cell:active:not(.cell-empty) { filter: brightness(1.3); }
+.cell-label { font-family: 'Fredoka One', cursive; line-height: 1.05; color: rgba(255,255,255,.95); text-align: center; padding: 1px 2px; word-break: break-word; hyphens: auto; }
+.cell-icon  { line-height: 1; text-align: center; }
+.cell-start   { background: linear-gradient(135deg,#27ae60,#1a7a43); }
+.cell-finish  { background: linear-gradient(135deg,#f5c842,#c89a10); }
+.cell-finish .cell-label { color: #1a1a2e; }
+.cell-q0      { background: linear-gradient(135deg,#2980b9,#1a5c8a); }
+.cell-q1      { background: linear-gradient(135deg,#8e44ad,#5b2c6f); }
+.cell-q2      { background: linear-gradient(135deg,#e67e22,#a85509); }
+.cell-q3      { background: linear-gradient(135deg,#e74c3c,#922b21); }
+.cell-skip    { background: linear-gradient(135deg,#636e72,#3d4b4d); }
+.cell-back    { background: linear-gradient(135deg,#c0392b,#7b241c); }
+.cell-fwd     { background: linear-gradient(135deg,#16a085,#0b6b59); }
+.cell-empty   { background: transparent; cursor: default; border-color: transparent; }
+
+.tokens { position: absolute; inset: 0; display: flex; flex-wrap: wrap; gap: 1px; justify-content: center; align-items: center; pointer-events: none; }
+.token { border-radius: 50%; border: 1.5px solid white; display: flex; align-items: center; justify-content: center; font-weight: 800; font-family: 'Fredoka One', cursive; }
+.token-1 { background: #e74c3c; } .token-2 { background: #2980b9; }
+
+/* Path-direction arrow — an overlay hint, doesn't take up flex space.
+   Each arrow flashes bright once per lap (staggered via inline
+   animation-delay/duration) to look like a chase of LED lights running
+   along the path, then dims until its next turn. */
+.cell-arrow {
+  position: absolute;
+  color: rgba(255,255,255,.35);
+  pointer-events: none;
+  line-height: 1;
+  z-index: 2;
+  animation-name: arrowChase;
+  animation-timing-function: linear;
+  animation-iteration-count: infinite;
+}
+@keyframes arrowChase {
+  0%   { color: var(--gold); filter: drop-shadow(0 0 6px var(--gold)) brightness(1.6); }
+  10%  { color: rgba(255,255,255,.35); filter: drop-shadow(0 1px 2px rgba(0,0,0,.5)); }
+  100% { color: rgba(255,255,255,.35); filter: drop-shadow(0 1px 2px rgba(0,0,0,.5)); }
+}
+.cell-arrow.dir-right { right: 2px;  top: 50%;  transform: translateY(-50%) rotate(0deg); }
+.cell-arrow.dir-left  { left: 2px;   top: 50%;  transform: translateY(-50%) rotate(180deg); }
+.cell-arrow.dir-down  { bottom: 1px; left: 50%; transform: translateX(-50%) rotate(90deg); }
+.cell-arrow.dir-up    { top: 1px;    left: 50%; transform: translateX(-50%) rotate(-90deg); }
+
+/* ─── BOTTOM BAR ─── */
+#bottomBar {
+  flex: 0 0 auto;
+  background: linear-gradient(180deg, #0d1b2a 0%, #132033 100%);
+  border-top: 2px solid var(--gold);
+  padding: 5px 16px calc(8px + env(safe-area-inset-bottom));
+  display: flex; flex-direction: column; align-items: center; gap: 4px;
+}
+#coinRow { display: flex; align-items: center; gap: 12px; width: 100%; }
+.coin-scene { -webkit-perspective: 500px; perspective: 500px; width: 58px; height: 58px; position: relative; flex-shrink: 0; }
+.coin-inner { width: 100%; height: 100%; -webkit-transform-style: preserve-3d; transform-style: preserve-3d; border-radius: 50%; position: relative; transition: transform .5s cubic-bezier(.4,0,.2,1); }
+.coin-face, .coin-back { position: absolute; inset: 0; border-radius: 50%; display: flex; align-items: center; justify-content: center; font-size: 1.7rem; -webkit-backface-visibility: hidden; backface-visibility: hidden; box-shadow: 0 3px 12px rgba(0,0,0,.5); }
+.coin-face { background: radial-gradient(circle at 35% 35%, #fae07a, #b88a00); }
+.coin-back { background: radial-gradient(circle at 35% 35%, #ddd, #888); transform: rotateY(180deg); }
+.coin-inner.flip-heads { transform: rotateY(0deg); }
+.coin-inner.flip-tails { transform: rotateY(180deg); }
+.coin-inner.spinning   { animation: coinSpin .65s ease-in-out; }
+@keyframes coinSpin { 0%{transform:rotateY(0)} 50%{transform:rotateY(1080deg)} 100%{transform:rotateY(720deg)} }
+.coin-result { font-family: 'Fredoka One', cursive; font-size: clamp(.68rem, 3.2vw, .85rem); color: var(--gold); flex: 1; text-align: center; line-height: 1.3; }
+#dieRow { display: flex; align-items: center; gap: 12px; width: 100%; }
+.die-scene { width: 58px; height: 58px; position: relative; flex-shrink: 0; display: flex; align-items: center; justify-content: center; }
+.die-face { font-size: 2.6rem; line-height: 1; color: var(--gold); text-shadow: 0 3px 10px rgba(0,0,0,.5); transition: transform .15s; }
+.die-face.rolling { animation: dieRoll .5s ease-in-out; }
+@keyframes dieRoll { 0%{transform:rotate(0) scale(1);} 40%{transform:rotate(210deg) scale(1.2);} 100%{transform:rotate(360deg) scale(1);} }
+#flipBtn {
+  font-family: 'Fredoka One', cursive; font-size: clamp(.82rem, 4vw, 1rem);
+  background: linear-gradient(135deg, var(--gold), #c8960a); color: #1a1a2e;
+  border: none; border-radius: 50px; padding: 10px 0; width: 100%;
+  cursor: pointer; box-shadow: 0 4px 18px rgba(245,200,66,.45); letter-spacing: .3px;
+}
+#flipBtn:active:not(:disabled) { filter: brightness(.92); }
+#flipBtn:disabled { opacity: .45; cursor: not-allowed; }
+#turnMsg { font-size: .7rem; color: #5a7a9a; text-align: center; font-weight: 700; min-height: 14px; letter-spacing: .3px; }
+
+/* ══════════════════════════════════
+   COIN ZOOM OVERLAY
+══════════════════════════════════ */
+#coinZoomOverlay {
+  position: fixed; inset: 0; z-index: 650;
+  background: rgba(5,12,25,.94); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 16px; opacity: 0; pointer-events: none; transition: opacity .3s ease;
+}
+#coinZoomOverlay.open { opacity: 1; pointer-events: all; }
+.coin-zoom-title {
+  font-family: 'Fredoka One', cursive;
+  font-size: clamp(1rem, 5vw, 1.3rem);
+  color: var(--gold); letter-spacing: 1px;
+  text-shadow: 0 0 20px rgba(245,200,66,.5);
+  opacity: .9;
+}
+.coin-zoom-scene { -webkit-perspective: 900px; perspective: 900px; width: clamp(130px, 34vw, 190px); height: clamp(130px, 34vw, 190px); position: relative; }
+.coin-zoom-inner { width: 100%; height: 100%; -webkit-transform-style: preserve-3d; transform-style: preserve-3d; border-radius: 50%; position: relative; transition: transform .5s cubic-bezier(.4,0,.2,1); }
+.coin-zoom-face, .coin-zoom-back {
+  position: absolute; inset: 0; border-radius: 50%;
+  display: flex; align-items: center; justify-content: center;
+  font-size: clamp(3rem, 14vw, 4.6rem); -webkit-backface-visibility: hidden; backface-visibility: hidden;
+  box-shadow: 0 10px 40px rgba(0,0,0,.6), 0 0 0 6px rgba(245,200,66,.15);
+}
+.coin-zoom-face { background: radial-gradient(circle at 35% 35%, #fae07a, #b88a00); }
+.coin-zoom-back { background: radial-gradient(circle at 35% 35%, #ddd, #888); transform: rotateY(180deg); }
+.coin-zoom-inner.flip-heads { transform: rotateY(0deg); }
+.coin-zoom-inner.flip-tails { transform: rotateY(180deg); }
+.coin-zoom-inner.spinning { animation: coinZoomSpin .7s cubic-bezier(.3,0,.2,1); }
+@keyframes coinZoomSpin { 0%{transform:rotateY(0) scale(1)} 40%{transform:rotateY(900deg) scale(1.08)} 100%{transform:rotateY(1440deg) scale(1)} }
+.coin-zoom-result {
+  font-family: 'Fredoka One', cursive;
+  font-size: clamp(1.2rem, 6.5vw, 1.8rem);
+  color: #fff; text-align: center; letter-spacing: .5px;
+  opacity: 0; transform: scale(.7) translateY(6px);
+  transition: opacity .28s cubic-bezier(.2,1.3,.5,1), transform .28s cubic-bezier(.2,1.3,.5,1);
+}
+.coin-zoom-result.show { opacity: 1; transform: scale(1) translateY(0); }
+.roll-zoom-value {
+  display: flex; align-items: center; justify-content: center; gap: 12px;
+  font-family: 'Fredoka One', cursive;
+  color: var(--gold);
+  opacity: 0; transform: scale(.6);
+  transition: opacity .32s cubic-bezier(.2,1.4,.5,1) .1s, transform .32s cubic-bezier(.2,1.4,.5,1) .1s;
+}
+.roll-zoom-value.show { opacity: 1; transform: scale(1); }
+.roll-zoom-value .num {
+  display: flex; align-items: center; justify-content: center;
+  width: clamp(72px, 20vw, 96px); height: clamp(72px, 20vw, 96px);
+  border-radius: 50%;
+  background: radial-gradient(circle at 35% 30%, #ffe38a, var(--gold) 70%, #c8960a 100%);
+  color: #1a1a2e; font-size: clamp(2.2rem, 11vw, 3.1rem);
+  box-shadow: 0 0 0 5px rgba(245,200,66,.2), 0 8px 28px rgba(245,200,66,.5);
+}
+.roll-zoom-value .label {
+  font-size: clamp(.85rem, 4vw, 1.05rem); color: #cfe0f0; letter-spacing: .5px;
+  text-align: left; line-height: 1.25;
+}
+.roll-zoom-value .label b { color: var(--gold); font-size: 1.1em; }
+
+/* ══════════════════════════════════
+   DIE ZOOM OVERLAY
+══════════════════════════════════ */
+#dieZoomOverlay {
+  position: fixed; inset: 0; z-index: 650;
+  background: rgba(5,12,25,.94); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  display: flex; flex-direction: column; align-items: center; justify-content: center;
+  gap: 16px; opacity: 0; pointer-events: none; transition: opacity .3s ease;
+}
+#dieZoomOverlay.open { opacity: 1; pointer-events: all; }
+.die-zoom-title {
+  font-family: 'Fredoka One', cursive;
+  font-size: clamp(1rem, 5vw, 1.3rem);
+  color: var(--gold); letter-spacing: 1px;
+  text-shadow: 0 0 20px rgba(245,200,66,.5);
+  opacity: .9;
+}
+.die-zoom-face {
+  font-size: clamp(5rem, 26vw, 7.5rem); line-height: 1; color: var(--gold);
+  filter: drop-shadow(0 10px 30px rgba(0,0,0,.6));
+}
+.die-zoom-face.spinning { animation: dieZoomSpin .7s cubic-bezier(.3,0,.2,1); }
+@keyframes dieZoomSpin { 0%{transform:rotate(0) scale(1)} 40%{transform:rotate(430deg) scale(1.15)} 100%{transform:rotate(720deg) scale(1)} }
+.die-zoom-result {
+  font-family: 'Fredoka One', cursive;
+  font-size: clamp(1.2rem, 6.5vw, 1.8rem);
+  color: #fff; text-align: center; letter-spacing: .5px;
+  opacity: 0; transform: scale(.7) translateY(6px);
+  transition: opacity .28s cubic-bezier(.2,1.3,.5,1), transform .28s cubic-bezier(.2,1.3,.5,1);
+}
+.die-zoom-result.show { opacity: 1; transform: scale(1) translateY(0); }
+
+/* ══════════════════════════════════
+   QUESTION MODAL
+══════════════════════════════════ */
+#qOverlay {
+  position: fixed; inset: 0; z-index: 200;
+  background: rgba(5,12,25,.92); -webkit-backdrop-filter: blur(8px); backdrop-filter: blur(8px);
+  display: flex; align-items: center; justify-content: center;
+  padding: 16px; opacity: 0; pointer-events: none; transition: opacity .28s;
+}
+#qOverlay.open { opacity: 1; pointer-events: all; }
+#qCard {
+  position: relative;
+  background: linear-gradient(155deg, #0d1f35 0%, #132b48 55%, #0f2540 100%);
+  border-radius: 22px; max-width: 420px; width: 100%;
+  box-shadow: 0 0 80px rgba(0,0,0,.7), 0 0 0 2px var(--gold);
+  transform: scale(.88) translateY(20px);
+  transition: transform .3s cubic-bezier(.2,1.3,.5,1); overflow: hidden;
+}
+#qOverlay.open #qCard { transform: scale(1) translateY(0); }
+#qBar { height: 6px; background: var(--gold); }
+#qBody { padding: 30px 26px 30px; display: flex; flex-direction: column; align-items: center; gap: 0; }
+#qText { font-size: clamp(1.05rem,5vw,1.55rem); font-weight: 800; color: #fff; text-align: center; line-height: 1.5; }
+#qClose { margin-top: 22px; font-family: 'Fredoka One', cursive; font-size: .92rem; background: var(--gold); color: #0d1b2a; border: none; border-radius: 50px; padding: 11px 36px; cursor: pointer; }
+
+/* ══════════════════════════════════
+   WINNER
+══════════════════════════════════ */
+#winOverlay {
+  position: fixed; inset: 0; z-index: 300;
+  background: rgba(0,0,0,.88); -webkit-backdrop-filter: blur(10px); backdrop-filter: blur(10px);
+  display: flex; align-items: center; justify-content: center;
+  opacity: 0; pointer-events: none; transition: opacity .4s;
+}
+#winOverlay.open { opacity: 1; pointer-events: all; }
+#winBox { background: linear-gradient(155deg,#0d1f35,#132b48); border: 3px solid var(--gold); border-radius: 24px; padding: 32px 36px; text-align: center; max-width: 320px; width: 90%; box-shadow: 0 0 120px rgba(245,200,66,.25); }
+#winBox .trophy { font-size: 3.8rem; margin-bottom: 8px; animation: popIn .5s both; }
+#winBox h2 { font-family: 'Fredoka One', cursive; font-size: 1.9rem; color: var(--gold); margin-bottom: 6px; }
+#winBox p  { color: #7a9ab8; margin-bottom: 20px; font-size: .85rem; }
+#winBtn { font-family: 'Fredoka One', cursive; font-size: .95rem; background: linear-gradient(135deg,var(--gold),#c8960a); color: #0d1b2a; border: none; border-radius: 50px; padding: 11px 32px; cursor: pointer; }
+/* ── YOUR TURN TOAST ── */
+#yourTurnToast {
+  position: fixed;
+  top: 50%;
+  left: 50%;
+  transform: translate(-50%, -50%) scale(0.8);
+  z-index: 600;
+  background: linear-gradient(135deg, #1a3a1a, #1e4a1e);
+  border: 2.5px solid #27ae60;
+  border-radius: 20px;
+  padding: 18px 32px;
+  text-align: center;
+  box-shadow: 0 0 60px rgba(39,174,96,.5), 0 8px 32px rgba(0,0,0,.6);
+  opacity: 0;
+  pointer-events: none;
+  transition: opacity .22s ease, transform .22s cubic-bezier(.2,1.4,.5,1);
+}
+#yourTurnToast.show {
+  opacity: 1;
+  transform: translate(-50%, -50%) scale(1);
+}
+#yourTurnToast .toast-icon { font-size: 2.2rem; line-height: 1; margin-bottom: 6px; }
+#yourTurnToast .toast-text {
+  font-family: 'Fredoka One', cursive;
+  font-size: clamp(1.1rem, 5vw, 1.5rem);
+  color: #2ecc71;
+  letter-spacing: .5px;
+}
+#yourTurnToast .toast-sub {
+  font-size: clamp(.65rem, 2.5vw, .78rem);
+  color: rgba(46,204,113,.65);
+  margin-top: 2px;
+}
+</style>
+</head>
+<body>
+
+<!-- YOUR TURN TOAST -->
+<div id="yourTurnToast">
+  <div class="toast-icon">🎯</div>
+  <div class="toast-text">Your Turn!</div>
+  <div class="toast-sub">Flip the coin to move</div>
+</div>
+
+<!-- LOBBY -->
+<div id="lobbyScreen">
+  <div class="lobby-logo" id="lobbyTitle">🪙 Head or Tail</div>
+  <div class="lobby-sub">ONLINE BOARD GAME</div>
+  <div class="lobby-card">
+    <div class="lobby-section-title">Your name</div>
+    <div class="lobby-name-row">
+      <span class="lobby-name-label">Name</span>
+      <input class="lobby-name-input" id="myNameInput" maxlength="14" value="Player" placeholder="Enter your name">
+    </div>
+    <div class="lobby-divider">CREATE</div>
+    <button class="btn-create" id="createRoomBtn">🎲 Create New Room</button>
+    <div class="lobby-divider">OR JOIN</div>
+    <div class="join-row">
+      <input class="join-input" id="joinCodeInput" maxlength="4" placeholder="CODE" autocapitalize="characters" autocomplete="off" autocorrect="off" spellcheck="false">
+      <button class="btn-join" id="joinRoomBtn">Join →</button>
+    </div>
+    <div class="lobby-error" id="lobbyError"></div>
+  </div>
+</div>
+
+<!-- WAITING -->
+<div id="waitScreen" class="hidden">
+  <div class="wait-title">Room created! 🎉</div>
+  <div class="wait-code-box">
+    <div class="wait-code-label">Share this code</div>
+    <div class="wait-code" id="waitCode">----</div>
+  </div>
+  <div class="wait-desc">Share this code with your opponent.<br>They enter it on the lobby screen to join.</div>
+  <button class="btn-copy" id="copyCodeBtn">📋 Copy Code</button>
+  <div class="wait-pulse">
+    <div class="dot"></div><div class="dot"></div><div class="dot"></div>
+    Waiting for opponent...
+  </div>
+  <button class="btn-cancel" id="cancelWaitBtn">✕ Cancel</button>
+</div>
+
+<!-- GAME -->
+<div id="app">
+  <div id="onlineBar">
+    <div class="online-dot"></div>
+    Room: <span id="roomCodeDisplay"></span>
+    &nbsp;·&nbsp; You are <span id="youAreSpan"></span>
+  </div>
+
+  <div id="hdr">
+    <h1 id="hdrTitle">🪙 Head or Tail</h1>
+    <button id="leaveBtn">✕ Leave</button>
+  </div>
+
+  <div id="playersStrip">
+    <div class="prow p1row" id="p1row">
+      <div class="pavatar p1av">1</div>
+      <div class="pinfo">
+        <div class="pname-display" id="p1name">Player 1</div>
+        <div class="ppos" id="p1pos">START</div>
+      </div>
+      <div class="skip-badge" id="p1skip" style="display:none">⏸ Skip</div>
+      <span class="you-badge" id="p1youBadge" style="display:none">YOU</span>
+    </div>
+    <div class="prow p2row" id="p2row">
+      <div class="pavatar p2av">2</div>
+      <div class="pinfo">
+        <div class="pname-display" id="p2name">Player 2</div>
+        <div class="ppos" id="p2pos">START</div>
+      </div>
+      <div class="skip-badge" id="p2skip" style="display:none">⏸ Skip</div>
+      <span class="you-badge" id="p2youBadge" style="display:none">YOU</span>
+    </div>
+  </div>
+
+  <div id="boardArea">
+    <div id="boardGrid"></div>
+  </div>
+
+  <div id="bottomBar">
+    <div id="coinRow">
+      <div class="coin-scene">
+        <div class="coin-inner flip-heads" id="coinInner">
+          <div class="coin-face">👸</div>
+          <div class="coin-back">👑</div>
+        </div>
+      </div>
+      <div class="coin-result" id="coinResult">Waiting for game...</div>
+    </div>
+    <div id="dieRow" style="display:none">
+      <div class="die-scene">
+        <div class="die-face" id="dieFace">⚀</div>
+      </div>
+      <div class="coin-result" id="dieResult">Waiting for game...</div>
+    </div>
+    <button id="flipBtn" disabled>🪙 Flip the Coin!</button>
+    <div id="turnMsg"></div>
+  </div>
+</div>
+
+<!-- COIN ZOOM -->
+<div id="coinZoomOverlay">
+  <div class="coin-zoom-title">🪙 Flipping the coin...</div>
+  <div class="coin-zoom-scene">
+    <div class="coin-zoom-inner flip-heads" id="coinZoomInner">
+      <div class="coin-zoom-face">👸</div>
+      <div class="coin-zoom-back">👑</div>
+    </div>
+  </div>
+  <div class="coin-zoom-result" id="coinZoomResult"></div>
+  <div class="roll-zoom-value" id="coinZoomValue">
+    <div class="num" id="coinZoomNum">1</div>
+    <div class="label">move<br><b id="coinZoomLabel">1 space</b></div>
+  </div>
+</div>
+
+<!-- DIE ZOOM -->
+<div id="dieZoomOverlay">
+  <div class="die-zoom-title">🎲 Rolling the die...</div>
+  <div class="die-zoom-face" id="dieZoomFace">⚀</div>
+  <div class="die-zoom-result" id="dieZoomResult"></div>
+  <div class="roll-zoom-value" id="dieZoomValue">
+    <div class="num" id="dieZoomNum">1</div>
+    <div class="label">move<br><b id="dieZoomLabel">1 space</b></div>
+  </div>
+</div>
+
+<!-- QUESTION MODAL -->
+<div id="qOverlay">
+  <div id="qCard">
+    <div id="qBar"></div>
+    <div id="qBody">
+      <div id="qText">Question goes here</div>
+      <button id="qClose">✓ Got it!</button>
+    </div>
+  </div>
+</div>
+
+<!-- WINNER -->
+<div id="winOverlay">
+  <div id="winBox">
+    <div class="trophy">🏆</div>
+    <h2 id="winText">Player 1 Wins!</h2>
+    <p>Congratulations! You reached the finish first!</p>
+    <button id="winBtn">🔄 Play Again</button>
+  </div>
+</div>
+
+<script type="module">
+import { initializeApp }                          from "https://www.gstatic.com/firebasejs/10.12.0/firebase-app.js";
+import { getDatabase, ref, set, get, update,
+         onValue, remove, onDisconnect }          from "https://www.gstatic.com/firebasejs/10.12.0/firebase-database.js";
+
+/* ─── FIREBASE ─── */
+const firebaseConfig = {
+  apiKey: "AIzaSyBRHlU8Xs75VxUindIB4aOTHxQO_SP-AOg",
+  authDomain: "gameone-59435.firebaseapp.com",
+  projectId: "gameone-59435",
+  storageBucket: "gameone-59435.firebasestorage.app",
+  messagingSenderId: "988100641303",
+  appId: "1:988100641303:web:c4bc881a8e04b7197c5252",
+  measurementId: "G-6E7GYF8FYM",
+  databaseURL: "https://gameone-59435-default-rtdb.firebaseio.com"
+};
+const fbApp = initializeApp(firebaseConfig);
+const db    = getDatabase(fbApp);
+
+/* ─── AUDIO ───
+   iOS Safari suspends (or refuses to start) AudioContext until it's
+   created/resumed inside a direct user-gesture handler, and never plays
+   audio before that first touch — so we open + unlock it explicitly on
+   the very first pointerdown, before any game sound is ever requested. */
+let _ctx=null;
+function actx(){
+  if(!_ctx) _ctx=new(window.AudioContext||window.webkitAudioContext)();
+  if(_ctx.state==='suspended') _ctx.resume();
+  return _ctx;
+}
+function unlockAudio(){
+  const c=actx();
+  // Play a silent, zero-length buffer through the graph once — the classic
+  // iOS unlock trick, needed in addition to resume() on older iOS/Safari.
+  const b=c.createBuffer(1,1,22050);
+  const s=c.createBufferSource();
+  s.buffer=b; s.connect(c.destination); s.start(0);
+  window.removeEventListener('pointerdown',unlockAudio);
+  window.removeEventListener('touchstart',unlockAudio);
+  window.removeEventListener('click',unlockAudio);
+}
+window.addEventListener('pointerdown',unlockAudio,{once:true});
+window.addEventListener('touchstart',unlockAudio,{once:true,passive:true});
+window.addEventListener('click',unlockAudio,{once:true});
+function playTone(freq,type,dur,vol=0.25,delay=0){const c=actx(),o=c.createOscillator(),g=c.createGain();o.connect(g);g.connect(c.destination);o.type=type;o.frequency.value=freq;const t=c.currentTime+delay;g.gain.setValueAtTime(0,t);g.gain.linearRampToValueAtTime(vol,t+0.01);g.gain.exponentialRampToValueAtTime(0.001,t+dur);o.start(t);o.stop(t+dur+0.01);}
+function sndCoinSpin(){for(let i=0;i<8;i++)playTone(400+i*180,'sine',.09,.12,i*.07);}
+function sndHeads(){playTone(660,'sine',.18,.3);playTone(880,'sine',.22,.2,.1);}
+function sndTails(){playTone(440,'sine',.18,.3);playTone(550,'sine',.22,.2,.1);}
+function sndMove(){playTone(520,'triangle',.07,.18);playTone(640,'triangle',.07,.15,.07);}
+function sndQuestion(){[300,380,450,600].forEach((f,i)=>playTone(f,'sine',.35,.18,i*.03));}
+function sndSkip(){playTone(320,'sawtooth',.2,.2);playTone(200,'sawtooth',.2,.2,.15);}
+function sndBack(){for(let i=0;i<4;i++)playTone(500-i*80,'square',.06,.15,i*.06);}
+function sndFwd(){for(let i=0;i<3;i++)playTone(400+i*100,'sine',.08,.18,i*.07);}
+function sndWin(){[523,659,784,1047].forEach((f,i)=>{playTone(f,'sine',.3,.28,i*.18);playTone(f*1.5,'sine',.15,.15,i*.18+.05);});}
+function sndClick(){playTone(900,'sine',.05,.1);}
+function sndYourTurn(){
+  // Bright upward arpeggio — friendly "go!" feel
+  playTone(440,'sine',.12,.22,0);
+  playTone(550,'sine',.12,.2,.1);
+  playTone(660,'sine',.18,.25,.2);
+  playTone(880,'sine',.22,.2,.32);
+}
+
+function showYourTurnToast(){
+  const toast=document.getElementById('yourTurnToast');
+  sndYourTurn();
+  toast.classList.add('show');
+  setTimeout(()=>toast.classList.remove('show'), 2200);
+}
+
+/* ─── DATA ─── */
+// MODE controls how movement is rolled: 'coin' (2 outcomes) or 'die' (6 outcomes).
+// GAME_TITLE is shown in the browser tab, the lobby screen and the in-game header.
+// Both are replaced by the generator when the game file is built.
+const MODE='coin';
+const GAME_TITLE="Head or tail – cara ou coroa";
+// One action (question or challenge) per regular house, in board order.
+const CONTENT=["How was the weather during your winter break?","Were you at home most of the time?","Were you with your family during the break?","Was your vacation relaxing?","Were you busy during the winter break?","What was your favorite meal during the winter break?","What was the most exciting thing you did during your winter break?","Were there any special celebrations or family gatherings?","\"Was there a movie, TV show, or book that you really enjoyed?\"","Were you excited about the FIFA World Cup?","Which World Cup match was your favorite?","Did you meet any of your classmates during the winter break?","Where did you go during the winter break?","What movie or TV show did you watch during the break?","What did you eat on your favorite day of the vacation?","Did you drink a special drink during the winter break? What was it?","How many hours did you sleep every night?","Who drove you during the vacation?","Did you meet any old friends during the winter break?","\"What book, magazine, or newspaper did you read during the break?\"","Did you buy anything special during the winter break?","Who did you help during the vacation?","Did you practice English during the break? What did you practice?","Did you listen to music in English during the winter break?","Did you plan your summer vacation? Where do you want to go?","Did you cook any special meal during the winter break?","Did you take any pictures during your winter break? Which one is your favorite?"];
+const CELL_TEXTS={skip:'Miss\nturn',back:'Back\n2',fwd:'Fwd\n+1',start:'START',finish:'FINISH'};
+// 35 cells total (7×5 grid, fully filled): 1 start, 1 finish, 2 skip, 2 back,
+// 2 fwd, and 27 regular houses ('q'), each holding one item from CONTENT.
+const BOARD_TYPES=[
+  'start',
+  'q','q','q','skip',
+  'q','q','back',
+  'q','q','fwd',
+  'q','q','q','skip',
+  'q','q','q','back',
+  'q','q','q','fwd',
+  'q','q','q','q','q','q','q','q','q','q','q',
+  'finish',
+];
+const BOARD=(()=>{
+  let qi=0;
+  return BOARD_TYPES.map(type=>{
+    if(type==='q'){
+      const cell={type:'q',qIdx:qi, colorIdx:qi%4};
+      qi++;
+      return cell;
+    }
+    return {type};
+  });
+})();
+
+const FINISH_IDX = BOARD.length-1;
+
+/* ─── BOARD SIZING ─── */
+const COLS=7, ROWS=5, GAP=3;
+
+function sizeBoard(){
+  const area=document.getElementById('boardArea');
+  const grid=document.getElementById('boardGrid');
+  const W=area.clientWidth-8, H=area.clientHeight-8;
+  if(!W||!H) return;
+  const cellW=Math.floor((W-GAP*(COLS-1))/COLS);
+  const cellH=Math.floor((H-GAP*(ROWS-1))/ROWS);
+  const cell=Math.min(cellW,cellH);
+  const totalW=cell*COLS+GAP*(COLS-1);
+  const totalH=cell*ROWS+GAP*(ROWS-1);
+  grid.style.width=totalW+'px';
+  grid.style.height=totalH+'px';
+  grid.style.gridTemplateColumns=`repeat(${COLS},${cell}px)`;
+  grid.style.gridTemplateRows=`repeat(${ROWS},${cell}px)`;
+  const iconSize=Math.round(cell*0.38)+'px';
+  const labelSize=Math.round(cell*0.22)+'px';
+  const tokenSize=Math.round(cell*0.38)+'px';
+  const tokenFont=Math.round(cell*0.18)+'px';
+  const arrowSize=Math.round(cell*0.17)+'px';
+  document.querySelectorAll('.cell-icon').forEach(el=>el.style.fontSize=iconSize);
+  document.querySelectorAll('.cell-label').forEach(el=>el.style.fontSize=labelSize);
+  document.querySelectorAll('.token').forEach(el=>{el.style.width=tokenSize;el.style.height=tokenSize;el.style.fontSize=tokenFont;});
+  document.querySelectorAll('.cell-arrow').forEach(el=>el.style.fontSize=arrowSize);
+}
+
+function buildBoard(){
+  const grid=document.getElementById('boardGrid');
+  grid.innerHTML='';
+  const order=[];
+  for(let i=0;i<=6;i++) order.push(i);
+  for(let i=13;i>=7;i--) order.push(i);
+  for(let i=14;i<=20;i++) order.push(i);
+  for(let i=27;i>=21;i--) order.push(i);
+  for(let i=28;i<=34;i++) order.push(i);
+
+  // Map each path index to its {row,col} in the visual grid, so we can
+  // figure out which way the path flows out of each cell (for the arrows).
+  const rc={};
+  order.forEach((idx,i)=>{ if(idx!==null) rc[idx]={r:Math.floor(i/COLS), c:i%COLS}; });
+  function dirFor(idx){
+    const a=rc[idx], b=rc[idx+1];
+    if(!a||!b) return null;
+    if(b.r>a.r) return 'down';
+    if(b.r<a.r) return 'up';
+    return b.c>a.c ? 'right' : 'left';
+  }
+  // Timing for the "chasing LED" arrow animation: each arrow flashes once
+  // per full lap, staggered by CHASE_STEP seconds per path index.
+  const CHASE_STEP=0.12;
+  const CHASE_TOTAL=(BOARD.length-1)*CHASE_STEP;
+
+  order.forEach(idx=>{
+    const div=document.createElement('div');
+    if(idx===null){div.className='cell cell-empty';grid.appendChild(div);return;}
+    const c=BOARD[idx];
+    div.className = c.type==='q' ? `cell cell-q${c.colorIdx}` : `cell cell-${c.type}`;
+    div.dataset.idx=idx;
+    div.addEventListener('click',()=>{sndClick();cellClick(idx);});
+    const ico=document.createElement('div');
+    ico.className='cell-icon';
+    if(c.type==='start')       ico.textContent='🏁';
+    else if(c.type==='finish') ico.textContent='🏆';
+    else if(c.type==='skip')   ico.textContent='⏸';
+    else if(c.type==='back'){
+      // "Back" sends the player toward lower indices, i.e. opposite of
+      // this cell's local forward flow — so the arrow must point the
+      // other way from wherever the path is actually heading here.
+      const flow=dirFor(idx);
+      ico.textContent = flow==='right' ? '⬅️' : '➡️';
+    }
+    else if(c.type==='fwd'){
+      // "Forward" sends the player toward higher indices — the same
+      // direction the path is already flowing at this cell.
+      const flow=dirFor(idx);
+      ico.textContent = flow==='right' ? '➡️' : '⬅️';
+    }
+    const lbl=document.createElement('div');
+    lbl.className='cell-label';
+    if(CELL_TEXTS[c.type]){lbl.textContent=CELL_TEXTS[c.type];lbl.style.whiteSpace='pre-line';}
+    const tok=document.createElement('div');
+    tok.className='tokens';tok.id=`tk${idx}`;
+    div.append(ico,lbl,tok);
+    const dir=dirFor(idx);
+    if(dir){
+      const arr=document.createElement('div');
+      arr.className=`cell-arrow dir-${dir}`;
+      arr.textContent='➤';
+      // Stagger each arrow's flash by its position along the path (idx),
+      // so they light up one after another like a chase of LEDs.
+      arr.style.animationDelay = (idx*CHASE_STEP)+'s';
+      arr.style.animationDuration = CHASE_TOTAL+'s';
+      div.appendChild(arr);
+    }
+    grid.appendChild(div);
+  });
+  sizeBoard();
+  renderTokens();
+}
+
+function renderTokens(){
+  if(!S) return;
+  document.querySelectorAll('.tokens').forEach(el=>el.innerHTML='');
+  S.pos.forEach((pos,p)=>{
+    if(animatingPlayers.has(p)) return; // floating token is representing this player right now
+    const el=document.getElementById(`tk${Math.min(pos,FINISH_IDX)}`);
+    if(!el) return;
+    const t=document.createElement('div');
+    t.className=`token token-${p+1}`;
+    t.textContent=p+1;
+    const area=document.getElementById('boardArea');
+    const W=area.clientWidth-8, H=area.clientHeight-8;
+    const cellW=Math.floor((W-GAP*(COLS-1))/COLS);
+    const cellH=Math.floor((H-GAP*(ROWS-1))/ROWS);
+    const cell=Math.min(cellW,cellH);
+    t.style.width=Math.round(cell*.38)+'px';
+    t.style.height=Math.round(cell*.38)+'px';
+    t.style.fontSize=Math.round(cell*.18)+'px';
+    el.appendChild(t);
+  });
+}
+
+/* ─── TOKEN MOVEMENT ANIMATION ─── */
+const animatingPlayers = new Set();
+
+function clampIdx(i){ return Math.max(0, Math.min(FINISH_IDX, i)); }
+
+function getCellCenter(idx){
+  const grid = document.getElementById('boardGrid');
+  const cellEl = grid.querySelector(`.cell[data-idx="${idx}"]`);
+  if(!cellEl) return null;
+  const gr = grid.getBoundingClientRect();
+  const cr = cellEl.getBoundingClientRect();
+  return { x:(cr.left-gr.left)+cr.width/2, y:(cr.top-gr.top)+cr.height/2, size:cr.width };
+}
+
+function ensureFloatToken(player){
+  let el = document.getElementById(`floatTok${player}`);
+  if(!el){
+    el = document.createElement('div');
+    el.id = `floatTok${player}`;
+    el.className = `floating-token token-${player+1}`;
+    el.textContent = player+1;
+    document.getElementById('boardGrid').appendChild(el);
+  }
+  return el;
+}
+
+function sizeFloatToken(el, cell){
+  el.style.width = Math.round(cell*.38)+'px';
+  el.style.height = Math.round(cell*.38)+'px';
+  el.style.fontSize = Math.round(cell*.18)+'px';
+}
+
+/* Walks a token step-by-step across the board from one cell to another,
+   hopping over each intermediate cell for a more tactile, physical feel. */
+function animateTokenWalk(player, fromIdx, toIdx, done){
+  fromIdx = clampIdx(fromIdx);
+  toIdx   = clampIdx(toIdx);
+  const el   = ensureFloatToken(player);
+  const from = getCellCenter(fromIdx);
+
+  if(from){
+    sizeFloatToken(el, from.size);
+    el.style.transition = 'none';
+    el.style.left = from.x+'px';
+    el.style.top  = from.y+'px';
+    el.style.display = 'flex';
+    void el.offsetWidth; // force reflow so the next change transitions
+    el.style.transition = '';
+  }
+
+  if(fromIdx === toIdx || !from){
+    animatingPlayers.delete(player);
+    el.style.display = 'none';
+    renderTokens();
+    done && done();
+    return;
+  }
+
+  const dir = toIdx > fromIdx ? 1 : -1;
+  const steps = [];
+  for(let i=fromIdx+dir; dir>0 ? i<=toIdx : i>=toIdx; i+=dir) steps.push(i);
+
+  let s = 0;
+  function nextStep(){
+    if(s >= steps.length){
+      animatingPlayers.delete(player);
+      el.style.display = 'none';
+      renderTokens();
+      done && done();
+      return;
+    }
+    const target = getCellCenter(steps[s]);
+    if(target){
+      el.style.left = target.x+'px';
+      el.style.top  = target.y+'px';
+      el.classList.remove('hop');
+      void el.offsetWidth;
+      el.classList.add('hop');
+      sndMove();
+    }
+    s++;
+    setTimeout(nextStep, 190);
+  }
+  setTimeout(nextStep, 20);
+}
+
+/* Walks a token forward to the cell it actually lands on (e.g. a "Back 2"
+   cell), then bounces it back to its final resting position — instead of
+   jumping straight between start/end, which hides the cell that triggered
+   the bounce (and can look like the token never moved at all when the net
+   displacement is zero). */
+function animateTokenBounce(player, fromIdx, landIdx, finalIdx, done){
+  fromIdx  = clampIdx(fromIdx);
+  landIdx  = clampIdx(landIdx);
+  finalIdx = clampIdx(finalIdx);
+  const el   = ensureFloatToken(player);
+  const from = getCellCenter(fromIdx);
+
+  if(from){
+    sizeFloatToken(el, from.size);
+    el.style.transition = 'none';
+    el.style.left = from.x+'px';
+    el.style.top  = from.y+'px';
+    el.style.display = 'flex';
+    void el.offsetWidth;
+    el.style.transition = '';
+  }
+
+  const fwdDir = landIdx > fromIdx ? 1 : (landIdx < fromIdx ? -1 : 0);
+  const fwdSteps = [];
+  if(fwdDir !== 0){
+    for(let i=fromIdx+fwdDir; fwdDir>0 ? i<=landIdx : i>=landIdx; i+=fwdDir) fwdSteps.push(i);
+  }
+  const backDir = finalIdx > landIdx ? 1 : (finalIdx < landIdx ? -1 : 0);
+  const backSteps = [];
+  if(backDir !== 0){
+    for(let i=landIdx+backDir; backDir>0 ? i<=finalIdx : i>=finalIdx; i+=backDir) backSteps.push(i);
+  }
+  const path = fwdSteps.map(idx=>({idx, land:true}))
+    .concat(backSteps.map(idx=>({idx, land:false})));
+
+  if(path.length === 0 || !from){
+    animatingPlayers.delete(player);
+    el.style.display = 'none';
+    renderTokens();
+    done && done();
+    return;
+  }
+
+  let s = 0;
+  function nextStep(){
+    if(s >= path.length){
+      animatingPlayers.delete(player);
+      el.style.display = 'none';
+      renderTokens();
+      done && done();
+      return;
+    }
+    const step = path[s];
+    const isLastFwdStep = step.land && step.idx === landIdx;
+    const target = getCellCenter(step.idx);
+    if(target){
+      el.style.left = target.x+'px';
+      el.style.top  = target.y+'px';
+      el.classList.remove('hop');
+      void el.offsetWidth;
+      el.classList.add('hop');
+      isLastFwdStep ? sndBack() : sndMove();
+    }
+    s++;
+    const pauseAfter = isLastFwdStep ? 420 : 190; // brief hold on the "Back" cell itself
+    setTimeout(nextStep, pauseAfter);
+  }
+  setTimeout(nextStep, 20);
+}
+
+function shakeStaticToken(player, idx){
+  const container = document.getElementById(`tk${clampIdx(idx)}`);
+  if(!container) return;
+  const tok = container.querySelector(`.token-${player+1}`);
+  if(!tok) return;
+  tok.classList.remove('shake');
+  void tok.offsetWidth;
+  tok.classList.add('shake');
+  setTimeout(()=>tok.classList.remove('shake'), 460);
+}
+
+function needsWalkAnim(act, oldS, newS){
+  if(!oldS || act.player==null) return false;
+  // "Back" moves always animate: the token visits the trigger cell before
+  // bouncing back, even when the net displacement ends up being zero.
+  if(act.type==='back') return true;
+  if(!['move','question','win','skip'].includes(act.type)) return false;
+  return oldS.pos[act.player] !== newS.pos[act.player];
+}
+
+/* ─── ONLINE STATE ─── */
+let roomCode=null, mySlot=null, myName='Player', gameRef=null, unsubscribe=null;
+let S=null, localPreview=false, questionOwner=null;
+
+function genCode(){
+  const c='ABCDEFGHJKLMNPQRSTUVWXYZ23456789';
+  return Array.from({length:4},()=>c[Math.floor(Math.random()*c.length)]).join('');
+}
+function setLobbyError(msg){document.getElementById('lobbyError').textContent=msg;}
+
+/* ─── LOBBY ACTIONS ─── */
+window.createRoom=async function(){
+  sndClick();
+  myName=document.getElementById('myNameInput').value.trim()||'Player 1';
+  setLobbyError('');
+  const code=genCode();
+  roomCode=code; mySlot=0;
+  gameRef=ref(db,`rooms/${code}`);
+  const init={names:[myName,''],pos:[0,0],cur:0,skip:[false,false],over:false,flipped:false,phase:'waiting',lastAction:null};
+  try{
+    await set(gameRef,init);
+    onDisconnect(gameRef).remove();
+  }catch(err){
+    setLobbyError('❌ '+(err.code==='PERMISSION_DENIED'?'Firebase rules blocked write — set .read/.write to true in Firebase Console.':err.message||'Connection error. Check browser console.'));
+    roomCode=null;mySlot=null;gameRef=null;return;
+  }
+  document.getElementById('waitCode').textContent=code;
+  document.getElementById('lobbyScreen').classList.add('hidden');
+  document.getElementById('waitScreen').classList.remove('hidden');
+  unsubscribe=onValue(gameRef,snap=>{
+    const data=snap.val();
+    if(!data) return;
+    if(data.phase==='playing'){onDisconnect(gameRef).cancel();startGame(data);}
+  });
+};
+
+window.joinRoom=async function(){
+  sndClick();
+  myName=document.getElementById('myNameInput').value.trim()||'Player 2';
+  const code=document.getElementById('joinCodeInput').value.trim().toUpperCase();
+  if(code.length!==4){setLobbyError('Enter a 4-character room code.');return;}
+  setLobbyError('Connecting…');
+  try{
+    const snap=await get(ref(db,`rooms/${code}`));
+    if(!snap.exists()){setLobbyError('Room not found. Make sure the host is waiting and the code is correct.');return;}
+    const data=snap.val();
+    if(data.phase!=='waiting'){setLobbyError('This room already started or ended.');return;}
+    roomCode=code; mySlot=1;
+    gameRef=ref(db,`rooms/${code}`);
+    await update(gameRef,{'names/1':myName,phase:'playing'});
+    setLobbyError('');
+    const snap2=await get(gameRef);
+    startGame(snap2.val());
+  }catch(err){
+    console.error('Firebase join error:',err);
+    setLobbyError('❌ '+(err.code==='PERMISSION_DENIED'?'Firebase rules blocked — set .read/.write to true in Firebase Console.':err.message||'Connection error. Check browser console (F12).'));
+  }
+};
+
+window.cancelWait=function(){
+  sndClick();
+  if(unsubscribe){unsubscribe();unsubscribe=null;}
+  if(gameRef) remove(gameRef);
+  roomCode=null;mySlot=null;gameRef=null;
+  document.getElementById('waitScreen').classList.add('hidden');
+  document.getElementById('lobbyScreen').classList.remove('hidden');
+};
+
+function legacyCopy(text){
+  // Fallback for older/insecure-context Safari and any browser without the
+  // async Clipboard API: a temporary off-screen textarea + execCommand.
+  const ta=document.createElement('textarea');
+  ta.value=text;
+  ta.setAttribute('readonly','');
+  ta.style.position='fixed';
+  ta.style.top='-1000px';
+  ta.style.left='-1000px';
+  document.body.appendChild(ta);
+  const sel=document.getSelection();
+  const prevRange = sel && sel.rangeCount>0 ? sel.getRangeAt(0) : null;
+  ta.select();
+  ta.setSelectionRange(0,text.length);
+  try{ document.execCommand('copy'); }catch(e){}
+  document.body.removeChild(ta);
+  if(prevRange && sel){ sel.removeAllRanges(); sel.addRange(prevRange); }
+}
+window.copyCode=function(){
+  sndClick();
+  if(navigator.clipboard && navigator.clipboard.writeText){
+    navigator.clipboard.writeText(roomCode).catch(()=>legacyCopy(roomCode));
+  } else {
+    legacyCopy(roomCode);
+  }
+  document.querySelector('.btn-copy').textContent='✅ Copied!';
+  setTimeout(()=>{document.querySelector('.btn-copy').textContent='📋 Copy Code';},2000);
+};
+
+/* ─── START GAME ─── */
+function startGame(initialData){
+  if(unsubscribe){unsubscribe();unsubscribe=null;}
+  document.getElementById('lobbyScreen').classList.add('hidden');
+  document.getElementById('waitScreen').classList.add('hidden');
+  document.getElementById('roomCodeDisplay').textContent=roomCode;
+  document.getElementById('youAreSpan').textContent=`Player ${mySlot+1}`;
+  document.getElementById('onlineBar').classList.add('show');
+  document.getElementById(`p${mySlot+1}youBadge`).style.display='inline-block';
+  buildBoard();
+  // If I'm Player 1, notify me that I go first
+  if(mySlot===0) setTimeout(showYourTurnToast, 600);
+  unsubscribe=onValue(gameRef,snap=>{
+    const data=snap.val();
+    if(!data){leaveGame();return;}
+    applyState(data);
+  });
+}
+
+function applyState(data){
+  const oldS = S;
+  S=data;
+  document.getElementById('p1name').textContent=data.names[0]||'Player 1';
+  document.getElementById('p2name').textContent=data.names[1]||'Player 2';
+  const act=data.lastAction;
+  const isNewAction = act && act.ts!==window._lastActTs;
+  if(isNewAction){
+    window._lastActTs=act.ts;
+    // If this action visibly moves a token, hide its static rendering
+    // now (before the first renderTokens paint) so it doesn't "teleport"
+    // before the floating token takes over the walk.
+    if(needsWalkAnim(act, oldS, data)) animatingPlayers.add(act.player);
+  }
+  renderTokens();
+  updateUI();
+  if(isNewAction) handleAction(act, oldS);
+}
+
+// Unicode die faces ⚀⚁⚂⚃⚄⚅ for values 1-6.
+const DIE_FACES=['','⚀','⚁','⚂','⚃','⚄','⚅'];
+
+function resetRollUI(){
+  if(MODE==='die'){
+    document.getElementById('dieResult').textContent='Tap to roll!';
+    document.getElementById('dieFace').textContent=DIE_FACES[1];
+  } else {
+    document.getElementById('coinResult').textContent='Tap to flip!';
+    document.getElementById('coinInner').className='coin-inner flip-heads';
+  }
+}
+
+function handleAction(act, oldS){
+  if(act.type==='flip'){
+    animateRoll(act.value);
+  } else if(act.type==='move' || act.type==='question' || act.type==='win'){
+    const p = act.player;
+    const from = oldS ? oldS.pos[p] : S.pos[p];
+    const to = S.pos[p];
+    animateTokenWalk(p, from, to, ()=>{
+      if(act.type==='question'){
+        questionOwner = act.player;
+        if(mySlot === act.player){
+          setTimeout(()=>showQuestion(act.idx, false), 350);
+        }
+      } else if(act.type==='win'){
+        setTimeout(()=>{sndWin();showWinner(act.player);},300);
+      }
+    });
+  } else if(act.type==='back'){
+    const p = act.player;
+    const from = oldS ? oldS.pos[p] : S.pos[p];
+    // landIdx is the cell where the roll actually landed ("Back 2"); finalIdx
+    // is where the token ends up after bouncing back.
+    const landIdx = act.landIdx!=null ? act.landIdx : S.pos[p];
+    const finalIdx = S.pos[p];
+    animateTokenBounce(p, from, landIdx, finalIdx, ()=>{});
+  } else if(act.type==='skip'){
+    const p = act.player;
+    if(needsWalkAnim(act, oldS, S)){
+      animateTokenWalk(p, oldS.pos[p], S.pos[p], ()=>sndSkip());
+    } else {
+      sndSkip();
+      shakeStaticToken(p, S.pos[p]);
+    }
+  } else if(act.type==='fwd'){
+    sndFwd();
+  } else if(act.type==='endTurn'){
+    questionOwner = null;
+    resetRollUI();
+    // Show "Your Turn!" toast only to the player who now has the turn
+    if(mySlot === S.cur) showYourTurnToast();
+  }
+}
+
+/* ─── COIN / DIE ROLL ─── */
+window.flipCoin=async function(){
+  if(!S||S.over||S.cur!==mySlot) return;
+  // Prevent double-roll locally before Firebase confirms
+  document.getElementById('flipBtn').disabled=true;
+  const value = MODE==='die' ? (1+Math.floor(Math.random()*6)) : (Math.random()<0.5?1:2);
+  const newState=computeMove(S,mySlot,value);
+  // Show the big zoomed roll first, revealing the result,
+  // BEFORE the piece actually moves on the board.
+  await showRollZoom(value,newState.lastAction);
+  // Sync the small coin/die display to the final result (no need to re-animate)
+  syncRollDisplay(value);
+  await update(gameRef,newState);
+};
+
+function syncRollDisplay(value){
+  if(MODE==='die'){
+    document.getElementById('dieFace').textContent=DIE_FACES[value];
+    document.getElementById('dieResult').textContent=`🎲 Rolled ${value} – Move ${value} space${value===1?'':'s'}!`;
+  } else {
+    const heads = value===1;
+    document.getElementById('coinInner').className=`coin-inner ${heads?'flip-heads':'flip-tails'}`;
+    document.getElementById('coinResult').textContent=heads?'🟡 Head – Move 1 space!':'⚪ Tail – Move 2 spaces!';
+  }
+}
+
+function showRollZoom(value,action){
+  return MODE==='die' ? showDieZoom(value,action) : showCoinZoom(value===1,action);
+}
+
+function showCoinZoom(heads,action){
+  return new Promise(resolve=>{
+    const overlay=document.getElementById('coinZoomOverlay');
+    const inner=document.getElementById('coinZoomInner');
+    const resultEl=document.getElementById('coinZoomResult');
+    const valueEl=document.getElementById('coinZoomValue');
+    const numEl=document.getElementById('coinZoomNum');
+    const labelEl=document.getElementById('coinZoomLabel');
+    resultEl.classList.remove('show');
+    valueEl.classList.remove('show');
+    resultEl.textContent='';
+    inner.className='coin-zoom-inner spinning';
+    overlay.classList.add('open');
+    sndCoinSpin();
+    setTimeout(()=>{
+      inner.className=`coin-zoom-inner ${heads?'flip-heads':'flip-tails'}`;
+      heads?sndHeads():sndTails();
+      const steps=heads?1:2;
+      resultEl.textContent=heads?'🟡 HEAD!':'⚪ TAIL!';
+      numEl.textContent=steps;
+      labelEl.textContent=steps===1?'1 space':'2 spaces';
+      resultEl.classList.add('show');
+      valueEl.classList.add('show');
+      const holdMs = (action && (action.type==='skip'||action.type==='back')) ? 2400 : 2100;
+      setTimeout(()=>{
+        overlay.classList.remove('open');
+        setTimeout(resolve,320);
+      },holdMs);
+    },700);
+  });
+}
+
+function showDieZoom(value,action){
+  return new Promise(resolve=>{
+    const overlay=document.getElementById('dieZoomOverlay');
+    const face=document.getElementById('dieZoomFace');
+    const resultEl=document.getElementById('dieZoomResult');
+    const valueEl=document.getElementById('dieZoomValue');
+    const numEl=document.getElementById('dieZoomNum');
+    const labelEl=document.getElementById('dieZoomLabel');
+    resultEl.classList.remove('show');
+    valueEl.classList.remove('show');
+    resultEl.textContent='';
+    face.textContent=DIE_FACES[1];
+    face.classList.remove('spinning');
+    void face.offsetWidth;
+    face.classList.add('spinning');
+    overlay.classList.add('open');
+    sndCoinSpin();
+    setTimeout(()=>{
+      face.textContent=DIE_FACES[value];
+      sndHeads();
+      resultEl.textContent=`🎲 ${value}!`;
+      numEl.textContent=value;
+      labelEl.textContent=value===1?'1 space':`${value} spaces`;
+      resultEl.classList.add('show');
+      valueEl.classList.add('show');
+      const holdMs = (action && (action.type==='skip'||action.type==='back')) ? 2400 : 2100;
+      setTimeout(()=>{
+        overlay.classList.remove('open');
+        setTimeout(resolve,320);
+      },holdMs);
+    },700);
+  });
+}
+
+function animateRoll(value){
+  if(MODE==='die'){
+    const face=document.getElementById('dieFace');
+    const res=document.getElementById('dieResult');
+    face.classList.remove('rolling');
+    void face.offsetWidth;
+    face.classList.add('rolling');
+    res.textContent='...';
+    setTimeout(()=>{
+      face.textContent=DIE_FACES[value];
+      setTimeout(()=>{sndHeads();},50);
+      res.textContent=`🎲 Rolled ${value} – Move ${value} space${value===1?'':'s'}!`;
+    },500);
+  } else {
+    const heads=value===1;
+    const inner=document.getElementById('coinInner');
+    const res=document.getElementById('coinResult');
+    inner.className='coin-inner spinning';
+    res.textContent='...';
+    setTimeout(()=>{
+      inner.className=`coin-inner ${heads?'flip-heads':'flip-tails'}`;
+      setTimeout(()=>{heads?sndHeads():sndTails();},50);
+      res.textContent=heads?'🟡 Head – Move 1 space!':'⚪ Tail – Move 2 spaces!';
+    },500);
+  }
+}
+
+/* ─── GAME LOGIC ─── */
+function computeMove(state,p,steps){
+  const pos=[...state.pos], skip=[...state.skip];
+  let cur=state.cur, over=state.over;
+  if(skip[p]){skip[p]=false;cur=p===0?1:0;return{pos,skip,cur,over,flipped:false,lastAction:{ts:Date.now(),type:'skip',player:p,value:steps}};}
+  const to=Math.min(pos[p]+steps,FINISH_IDX);
+  pos[p]=to;
+  if(to>=FINISH_IDX){over=true;return{pos,skip,cur,over,flipped:false,lastAction:{ts:Date.now(),type:'win',player:p,value:steps}};}
+  const cell=BOARD[to];
+  if(cell.type==='skip'){skip[p]=true;cur=p===0?1:0;return{pos,skip,cur,over,flipped:false,lastAction:{ts:Date.now(),type:'skip',player:p,value:steps}};}
+  if(cell.type==='back'){const bt=Math.max(0,to-2);pos[p]=bt;cur=p===0?1:0;return{pos,skip,cur,over,flipped:false,lastAction:{ts:Date.now(),type:'back',player:p,landIdx:to,value:steps}};}
+  if(cell.type==='fwd'){const ft=Math.min(FINISH_IDX,to+1);pos[p]=ft;if(ft>=FINISH_IDX){over=true;return{pos,skip,cur,over,flipped:false,lastAction:{ts:Date.now(),type:'win',player:p,value:steps}};}return{pos,skip,cur,over,flipped:false,lastAction:{ts:Date.now(),type:'question',idx:ft,player:p,value:steps}};}
+  if(cell.type==='q')return{pos,skip,cur,over,flipped:false,lastAction:{ts:Date.now(),type:'question',idx:to,player:p,value:steps}};
+  cur=p===0?1:0;
+  return{pos,skip,cur,over,flipped:false,lastAction:{ts:Date.now(),type:'move',player:p,value:steps}};
+}
+
+/* ─── QUESTION MODAL ─── */
+function showQuestion(idx,preview){
+  const cell=BOARD[idx];
+  if(cell.type!=='q') return;
+  const content = CONTENT[cell.qIdx] || '';
+  document.getElementById('qText').textContent=content;
+  document.getElementById('qOverlay').classList.add('open');
+  localPreview=preview;
+  if(!preview) sndQuestion();
+}
+
+function cellClick(idx){if(BOARD[idx].type!=='q')return;showQuestion(idx,true);}
+
+window.closeQuestion=async function(){
+  sndClick();
+  document.getElementById('qOverlay').classList.remove('open');
+  resetRollUI();
+  if(localPreview){localPreview=false;return;}
+  // Only the player who LANDED on the cell sends endTurn to Firebase
+  // The opponent just closes their modal locally — no Firebase write
+  if(!S || mySlot !== questionOwner) return;
+  const newCur = questionOwner===0 ? 1 : 0;
+  questionOwner = null;
+  await update(gameRef,{cur:newCur, flipped:false, lastAction:{ts:Date.now(), type:'endTurn'}});
+};
+
+/* ─── UI ─── */
+function updateUI(){
+  if(!S) return;
+  const lbl=p=>S.pos[p]===0?'START':S.pos[p]>=FINISH_IDX?'FINISH 🏆':`Space ${S.pos[p]}`;
+  document.getElementById('p1pos').textContent=lbl(0);
+  document.getElementById('p2pos').textContent=lbl(1);
+  document.getElementById('p1skip').style.display=S.skip[0]?'block':'none';
+  document.getElementById('p2skip').style.display=S.skip[1]?'block':'none';
+  document.getElementById('p1row').classList.toggle('active',S.cur===0);
+  document.getElementById('p2row').classList.toggle('active',S.cur===1);
+  const isMyTurn = S.cur === mySlot && !S.over;
+  document.getElementById('flipBtn').disabled = !isMyTurn;
+  const waitingName = S.names[S.cur] || `Player ${S.cur+1}`;
+  document.getElementById('turnMsg').textContent = S.over ? '' :
+    isMyTurn ? '🎯 Your turn — flip the coin!' :
+    `⏳ Waiting for ${waitingName}...`;
+}
+
+function showWinner(p){
+  document.getElementById('winText').textContent=`${S?.names[p]||`Player ${p+1}`} Wins! 🎉`;
+  document.getElementById('winOverlay').classList.add('open');
+  document.getElementById('flipBtn').disabled=true;
+}
+
+window.leaveGame=function(){
+  sndClick();
+  if(unsubscribe){unsubscribe();unsubscribe=null;}
+  roomCode=null;mySlot=null;gameRef=null;S=null;
+  document.getElementById('winOverlay').classList.remove('open');
+  document.getElementById('qOverlay').classList.remove('open');
+  document.getElementById('onlineBar').classList.remove('show');
+  document.getElementById('p1youBadge').style.display='none';
+  document.getElementById('p2youBadge').style.display='none';
+  document.getElementById('coinResult').textContent='Waiting for game...';
+  document.getElementById('coinInner').className='coin-inner flip-heads';
+  document.getElementById('dieResult').textContent='Waiting for game...';
+  document.getElementById('dieFace').textContent=DIE_FACES[1];
+  document.getElementById('flipBtn').disabled=true;
+  document.getElementById('turnMsg').textContent='';
+  document.getElementById('lobbyScreen').classList.remove('hidden');
+  window._lastActTs=null;
+};
+
+(function initGameTitle(){
+  document.title = GAME_TITLE + ' – Board Game';
+  const lobbyEl = document.getElementById('lobbyTitle');
+  const hdrEl = document.getElementById('hdrTitle');
+  if(lobbyEl) lobbyEl.textContent = GAME_TITLE;
+  if(hdrEl) hdrEl.textContent = GAME_TITLE;
+})();
+
+(function initRollUI(){
+  const coinRow=document.getElementById('coinRow');
+  const dieRow=document.getElementById('dieRow');
+  const btn=document.getElementById('flipBtn');
+  if(MODE==='die'){
+    coinRow.style.display='none';
+    dieRow.style.display='flex';
+    btn.textContent='🎲 Roll the Die!';
+  } else {
+    coinRow.style.display='flex';
+    dieRow.style.display='none';
+    btn.textContent='🪙 Flip the Coin!';
+  }
+})();
+
+/* ─── EVENT WIRING (no inline HTML handlers) ─── */
+document.getElementById('createRoomBtn').addEventListener('click', createRoom);
+document.getElementById('joinRoomBtn').addEventListener('click', joinRoom);
+document.getElementById('copyCodeBtn').addEventListener('click', copyCode);
+document.getElementById('cancelWaitBtn').addEventListener('click', cancelWait);
+document.getElementById('leaveBtn').addEventListener('click', leaveGame);
+document.getElementById('flipBtn').addEventListener('click', flipCoin);
+document.getElementById('qClose').addEventListener('click', closeQuestion);
+document.getElementById('winBtn').addEventListener('click', leaveGame);
+document.getElementById('joinCodeInput').addEventListener('input', function(){
+  this.value = this.value.toUpperCase();
+});
+
+/* ─── VIEWPORT HEIGHT FIX ───
+   iOS Safari's address bar grows/shrinks the visual viewport without
+   firing a standard resize in older versions, and 100vh is measured
+   against the *layout* viewport (bar included), causing content to be
+   cut off under the bar. Setting a --vh custom property from the actual
+   window.innerHeight, refreshed on resize/orientation change, fixes it
+   as a fallback for browsers that don't yet support 100dvh. */
+function setVhVar(){
+  document.documentElement.style.setProperty('--vh', (window.innerHeight*0.01)+'px');
+}
+setVhVar();
+window.addEventListener('resize',()=>{setVhVar();sizeBoard();renderTokens();});
+window.addEventListener('orientationchange',()=>{setVhVar();setTimeout(()=>{sizeBoard();renderTokens();},120);});
+// visualViewport fires more reliably than window resize on iOS Safari when
+// the address bar/keyboard changes the visible area.
+if(window.visualViewport){
+  window.visualViewport.addEventListener('resize',()=>{setVhVar();sizeBoard();renderTokens();});
+}
+</script>
+</body>
+</html>
