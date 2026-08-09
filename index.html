@@ -805,17 +805,21 @@ const CONTENT=["How was the weather during your winter break?","Were you at home
 const CELL_TEXTS={skip:'Miss\nturn',back:'Back\n2',fwd:'Fwd\n+1',start:'START',finish:'FINISH'};
 // 35 cells total (7×5 grid, fully filled): 1 start, 1 finish, 2 skip, 2 back,
 // 2 fwd, and 27 regular houses ('q'), each holding one item from CONTENT.
+
 const BOARD_TYPES=[
   'start',
   'q','q','q','skip',
-  'q','q','back',
+  'q','q','q',            // Removido o 'back' antigo daqui
   'q','q','fwd',
   'q','q','q','skip',
   'q','q','q','back',
   'q','q','q','fwd',
-  'q','q','q','q','q','q','q','q','q','q','q',
+  'q','q','q','q','q','back','q','q','q','q','q', // O 'back' posicionado corretamente na 2ª casa da última linha
   'finish',
 ];
+
+
+
 const BOARD=(()=>{
   let qi=0;
   return BOARD_TYPES.map(type=>{
